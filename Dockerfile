@@ -1,9 +1,15 @@
 FROM golang:latest
 
-ADD . /go/src/github.com/aarongalang/cosi-web-test
+WORKDIR /app
 
-RUN go install github.com/aarongalang/cosi-web-test@latest
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+
+COPY *.go ./
+
+RUN go build -o /cosi-web-test
 
 EXPOSE 8080
 
-ENTRYPOINT ["/cosi-web-test"]
+CMD ["/cosi-web-test"]
