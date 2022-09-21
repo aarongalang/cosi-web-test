@@ -15,7 +15,7 @@ spec:
         app: cosi-web
     spec:
       containers:
-      - name: cosi-web-werver
-        image: nginx:1.14.2
+      - name: cosi-web-server
+        image: aarongalang/cosi-web-test:latest
         ports: 
         - containerPort: 80
