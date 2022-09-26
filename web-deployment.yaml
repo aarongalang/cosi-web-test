@@ -19,6 +19,15 @@ spec:
         image: aarongalang/cosi-web-test:latest
         ports: 
         - containerPort: 80
+        volumeMounts:
+        - name: cosi-bucket1
+          mountPath: /cosi/bucket1
+    volumes:
+    - name: cosi-bucket1
+      projected:
+        sources:
+        - secret:
+          name: bucketcreds1
 ---
 apiVersion: v1
 kind: Service

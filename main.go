@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -10,8 +12,22 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
 
+type BucketInfo struct {
+	spec BucketInfoSpec "json: spec"
+}
+
+type BucketInfoSpec struct {
+	accessSecretKey string "json: accessSecretKey"
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	containerClient, err := azblob.NewContainerClientWithNoCredential("https://agcosiacc.blob.core.windows.net/cosi-driver-test-concreate29e4e98c-8982-482f-b4ea-e8c34476cadf?sp=r&st=2022-09-22T21:35:46Z&se=2022-09-30T05:35:46Z&sv=2021-06-08&sr=c&sig=g0szIhf2yI9WVXea%2BOdgqToXljh7t8Kwe4FOoDZIdaw%3D", nil)
+	secret, err := getSecret("/cosi/bucket1")
+	if err != nil {
+		fmt.Printf("secret: %s", err.Error())
+		return
+	}
+
+	containerClient, err := azblob.NewContainerClientWithNoCredential(secret, nil)
 	if err != nil {
 		fmt.Printf("containerClient: %s", err.Error())
 		return
@@ -44,6 +60,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprint(w, "Cosi test web app: "+string(data))
+}
+
+func getSecret(mntPath string) (string, error) {
+	secretFile, err := os.Open("/cosi/bucket1")
+	if err != nil {
+		return "", err
+	}
+	defer secretFile.Close()
+
+	var bucketInfo BucketInfo
+	jsonData, _ := ioutil.ReadAll(secretFile)
+	json.Unmarshal(jsonData, &bucketInfo)
+	return bucketInfo.spec.accessSecretKey, nil
 }
 
 func main() {
