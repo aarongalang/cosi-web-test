@@ -10,38 +10,32 @@ import (
 	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	cosiapi "sigs.k8s.io/container-object-storage-interface-api/apis"
+	"k8s.io/klog/v2"
 )
-
-type BucketInfo struct {
-	spec BucketInfoSpec "json: spec"
-}
-
-type BucketInfoSpec struct {
-	accessSecretKey string "json: accessSecretKey"
-}
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	secret, err := getSecret("/cosi/bucket1")
 	if err != nil {
-		fmt.Printf("secret: %s", err.Error())
+		klog.Infof("secret: %s", err.Error())
 		return
 	}
 
 	containerClient, err := azblob.NewContainerClientWithNoCredential(secret, nil)
 	if err != nil {
-		fmt.Printf("containerClient: %s", err.Error())
+		klog.Infof("containerClient: %s", err.Error())
 		return
 	}
 
 	blobClient, err := containerClient.NewBlobClient("LoremIpsum.txt")
 	if err != nil {
-		fmt.Printf("blobClient: %s", err.Error())
+		klog.Infof("blobClient: %s", err.Error())
 		return
 	}
 
 	file, err := os.Create("data.txt")
 	if err != nil {
-		fmt.Printf("create file: %s", err.Error())
+		klog.Infof("create file: %s", err.Error())
 		return
 	}
 	defer file.Close()
@@ -49,13 +43,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	err = blobClient.DownloadToFile(context.TODO(), 0, 0, file, azblob.DownloadOptions{})
 	if err != nil {
-		fmt.Printf("download data: %s", err.Error())
+		klog.Infof("download data: %s", err.Error())
 		return
 	}
 
 	data, err := os.ReadFile(file.Name())
 	if err != nil {
-		fmt.Printf("read data: %s", err.Error())
+		klog.Infof("read data: %s", err.Error())
 		return
 	}
 
@@ -63,21 +57,24 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getSecret(mntPath string) (string, error) {
-	secretFile, err := os.Open("/cosi/bucket1")
+	secretFile, err := os.Open("/cosi/bucket1/BucketInfo")
 	if err != nil {
 		return "", err
 	}
 	defer secretFile.Close()
 
-	var bucketInfo BucketInfo
+	var bucketInfo cosiapi.BucketInfo
 	jsonData, _ := ioutil.ReadAll(secretFile)
 	json.Unmarshal(jsonData, &bucketInfo)
-	return bucketInfo.spec.accessSecretKey, nil
+	klog.Infof("getSecret: %+v", bucketInfo)
+	return bucketInfo.Spec.Azure.AccessToken, nil
 }
 
 func main() {
-	http.HandleFunc("/", handler)
-	err := http.ListenAndServe(":8080", nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler)
+	klog.Infof("AKASH :: main")
+	err := http.ListenAndServe(":8080", mux)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 		return

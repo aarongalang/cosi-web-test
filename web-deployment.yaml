@@ -16,18 +16,17 @@ spec:
     spec:
       containers:
       - name: cosi-web-server
-        image: aarongalang/cosi-web-test:latest
+        image: mukhoakash/cosi-web-test:latest
+        imagePullPolicy: Always
         ports: 
-        - containerPort: 80
+        - containerPort: 8080
         volumeMounts:
         - name: cosi-bucket1
           mountPath: /cosi/bucket1
-    volumes:
-    - name: cosi-bucket1
-      projected:
-        sources:
-        - secret:
-          name: bucketcreds1
+      volumes:
+      - name: cosi-bucket1
+        secret:
+          secretName: bucketcredsacc
 ---
 apiVersion: v1
 kind: Service
