@@ -4,6 +4,7 @@ import (
 	// "context"
 	"encoding/json"
 	// "fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -88,37 +89,27 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var buffer []byte
-
-	_, err := blobClient.DownloadBuffer(r.Context(), buffer, nil)
+	data, err := blobClient.DownloadStream(r.Context(), nil)
 	if err != nil {
-		klog.Infof("download data: %s", err.Error())
-		file, err := os.Create("/cosi/data.txt")
-		if err != nil {
-			klog.Infof("create file: %s", err.Error())
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Error fetching blob"))
-			return
-		}
-
-		defer file.Close()
-
-		_, err = blobClient.DownloadFile(r.Context(), file, nil)
-		if err != nil {
-			klog.Infof("Error from DownloadFile: %+v", err)
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Error fetching blob"))
-			return
-		}
-
-		_, err = file.Read(buffer)
+		klog.Infof("Error DownloadStream: %s", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error fetching blob"))
+		return
 	}
 
-	klog.Infof("Data from blob :: %s", string(buffer))
+	downloadData, err := io.ReadAll(data.Body)
+	if err != nil {
+		klog.Infof("Error ReadAll: %s", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error fetching blob"))
+		return
+	}
+
+	klog.Infof("Data from blob :: %s", string(downloadData))
 
 	w.WriteHeader(http.StatusOK)
 	requestBody := RequestBody {
-		Data: string(buffer),
+		Data: string(downloadData),
 	}
 
 	jsonData,err := json.Marshal(requestBody)
