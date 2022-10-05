@@ -22,11 +22,16 @@ spec:
         - containerPort: 8080
         volumeMounts:
         - name: cosi-bucket1
-          mountPath: /cosi/bucket1
+          mountPath: /cosi/bucketcon
+        - name: cosi-bucket2
+          mountPath: /cosi/bucketacc
       volumes:
       - name: cosi-bucket1
         secret:
-          secretName: bucketcreds1
+          secretName: bucketcredscon
+      - name: cosi-bucket2
+        secret:
+          secretName: bucketcredsacc
 ---
 apiVersion: v1
 kind: Service
