@@ -106,6 +106,8 @@ func createContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enableCors(&w)
+
 	vars := mux.Vars(r)
 	containerName := vars["name"]
 
@@ -138,6 +140,7 @@ func putBlobInContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enableCors(&w)
 	vars := mux.Vars(r)
 	containerName := vars["containerName"]
 	blobName := vars["blobName"]
@@ -170,6 +173,8 @@ func getBlobInContainer(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("getBlobInContainer supports only GET Requests\n"))
 		return
 	}
+
+	enableCors(&w)
 
 	vars := mux.Vars(r)
 	containerName := vars["containerName"]
@@ -205,6 +210,8 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("getBlob supports only GET Requests\n"))
 		return
 	}
+
+	enableCors(&w)
 	vars := mux.Vars(r)
 	blobName := vars["name"]
 	blobClient := containerClient.NewBlobClient(blobName)
@@ -246,6 +253,8 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("putBlob supports only POST Requests\n"))
 		return
 	}
+
+	enableCors(&w)
 
 	vars := mux.Vars(r)
 	blobName := vars["name"]
