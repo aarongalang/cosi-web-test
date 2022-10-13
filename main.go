@@ -63,6 +63,10 @@ func getSecret(path string) (string, error) {
 	return bucketInfo.Spec.Azure.AccessToken, nil
 }
 
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
+
 func main() {
 	klog.Infof("AKASH :: main")
 	err := initContainerClient()
@@ -117,12 +121,13 @@ func createContainer(w http.ResponseWriter, r *http.Request) {
 			klog.Infof("Container %s creation failure %+v", containerName, err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Container creation error\n"))
-			return			
+			return
 		}
 	}
 
 	klog.Infof("Container %s created successfully", containerName)
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Write([]byte("Container creation successful\n"))
 }
 
@@ -155,6 +160,7 @@ func putBlobInContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Write([]byte("Upload successful\n"))
 }
 
@@ -189,6 +195,7 @@ func getBlobInContainer(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	enableCors(&w)
 	w.Write([]byte(opStr))
 }
 
@@ -228,6 +235,7 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 	opStr := fmt.Sprintf("%s\n", string(jsonData))
 
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(opStr))
 }
@@ -267,6 +275,7 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Write([]byte("Upload successful\n"))
 }
 
