@@ -63,6 +63,10 @@ func getSecret(path string) (string, error) {
 	return bucketInfo.Spec.Azure.AccessToken, nil
 }
 
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
+
 func main() {
 	klog.Infof("AKASH :: main")
 	err := initContainerClient()
@@ -102,6 +106,8 @@ func createContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enableCors(&w)
+
 	vars := mux.Vars(r)
 	containerName := vars["name"]
 
@@ -117,7 +123,7 @@ func createContainer(w http.ResponseWriter, r *http.Request) {
 			klog.Infof("Container %s creation failure %+v", containerName, err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Container creation error\n"))
-			return			
+			return
 		}
 	}
 
@@ -133,6 +139,7 @@ func putBlobInContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enableCors(&w)
 	vars := mux.Vars(r)
 	containerName := vars["containerName"]
 	blobName := vars["blobName"]
@@ -164,6 +171,8 @@ func getBlobInContainer(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("getBlobInContainer supports only GET Requests\n"))
 		return
 	}
+
+	enableCors(&w)
 
 	vars := mux.Vars(r)
 	containerName := vars["containerName"]
@@ -198,6 +207,8 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("getBlob supports only GET Requests\n"))
 		return
 	}
+
+	enableCors(&w)
 	vars := mux.Vars(r)
 	blobName := vars["name"]
 	blobClient := containerClient.NewBlobClient(blobName)
@@ -238,6 +249,8 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("putBlob supports only POST Requests\n"))
 		return
 	}
+
+	enableCors(&w)
 
 	vars := mux.Vars(r)
 	blobName := vars["name"]
