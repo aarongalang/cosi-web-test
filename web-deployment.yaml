@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: cosi-web-server
-        image: mukhoakash/cosi-web-test:latest
+        image: aarongalang/cosi-web-test:latest
         imagePullPolicy: Always
         ports: 
         - containerPort: 8080

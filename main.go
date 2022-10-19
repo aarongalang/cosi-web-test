@@ -2,6 +2,7 @@ package main
 
 import (
 	// "context"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,8 +14,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/gorilla/mux"
-	cosiapi "sigs.k8s.io/container-object-storage-interface-api/apis"
 	"k8s.io/klog/v2"
+	cosiapi "sigs.k8s.io/container-object-storage-interface-api/apis"
 )
 
 var containerClient *container.Client
@@ -65,6 +66,8 @@ func getSecret(path string) (string, error) {
 
 func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Add("Access-Control-Allow-Headers", "Content-Type")
+	(*w).Header().Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 }
 
 func main() {
@@ -81,9 +84,10 @@ func main() {
 		return
 	}
 	mpx := mux.NewRouter()
+	mpx.Methods("OPTIONS").HandlerFunc(handlePreFlight)
+	mpx.HandleFunc("/put/", putBlob)
 	mpx.HandleFunc("/", handleError)
 	mpx.HandleFunc("/get/{name}", getBlob)
-	mpx.HandleFunc("/put/{name}", putBlob)
 	mpx.HandleFunc("/createcon/{name}", createContainer)
 	mpx.HandleFunc("/put/{containerName}/{blobName}", putBlobInContainer)
 	mpx.HandleFunc("/get/{containerName}/{blobName}", getBlobInContainer)
@@ -92,6 +96,13 @@ func main() {
 		klog.Fatal("ListenAndServe: ", err)
 		return
 	}
+}
+
+func handlePreFlight(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
+	w.Write([]byte("Handling PreFlight\n"))
 }
 
 func handleError(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +140,7 @@ func createContainer(w http.ResponseWriter, r *http.Request) {
 
 	klog.Infof("Container %s created successfully", containerName)
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Write([]byte("Container creation successful\n"))
 }
 
@@ -162,6 +174,7 @@ func putBlobInContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Write([]byte("Upload successful\n"))
 }
 
@@ -186,7 +199,7 @@ func getBlobInContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonData,err := getBlobDataFromResponseBody(data)
+	jsonData, err := getBlobDataFromResponseBody(data)
 	if err != nil {
 		klog.Infof("Error: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -198,6 +211,7 @@ func getBlobInContainer(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	enableCors(&w)
 	w.Write([]byte(opStr))
 }
 
@@ -216,7 +230,7 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 	if blobClient == nil {
 		klog.Infof("blobClient is nil")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error creating blob client\n"))	
+		w.Write([]byte("Error creating blob client\n"))
 		return
 	}
 
@@ -228,7 +242,7 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonData,err := getBlobDataFromResponseBody(data)
+	jsonData, err := getBlobDataFromResponseBody(data)
 	if err != nil {
 		klog.Infof("Error: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -239,6 +253,7 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 	opStr := fmt.Sprintf("%s\n", string(jsonData))
 
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(opStr))
 }
@@ -252,9 +267,25 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 
 	enableCors(&w)
 
-	vars := mux.Vars(r)
-	blobName := vars["name"]
-	blobClient := containerClient.NewBlockBlobClient(blobName)
+	err := r.ParseMultipartForm(2 << 20)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error parsing MultiPart Form\n"))
+		return
+	}
+
+	file, header, _ := r.FormFile("file")
+	defer file.Close()
+	buf := bytes.NewBuffer(nil)
+	_, err = io.Copy(buf, file)
+	if err != nil {
+		klog.Infof("Error reading file : %+v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error reading file\n"))
+		return
+	}
+
+	blobClient := containerClient.NewBlockBlobClient(header.Filename)
 	if blobClient == nil {
 		klog.Infof("blobClient is nil")
 		w.WriteHeader(http.StatusBadRequest)
@@ -262,16 +293,7 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := getBlobDataFromRequestBody(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error converting to json\n"))
-		return
-	}
-
-	klog.Infof("putBlob :: data :: %+v :: %s :: %v", data, string(data.Data), []byte(data.Data))
-
-	_, err = blobClient.UploadBuffer(r.Context(), []byte(data.Data), nil)
+	_, err = blobClient.UploadBuffer(r.Context(), buf.Bytes(), nil)
 	if err != nil {
 		klog.Infof("Error uploading blob : %+v", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -280,6 +302,8 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	enableCors(&w)
+	w.Header().Add("Content-Type", "multipart/form-data")
 	w.Write([]byte("Upload successful\n"))
 }
 
@@ -306,7 +330,7 @@ func getBlobDataFromResponseBody(data azblob.DownloadStreamResponse) ([]byte, er
 
 	klog.Infof("Data from blob :: %s", string(downloadData))
 
-	requestBody := RequestBody {
+	requestBody := RequestBody{
 		Data: string(downloadData),
 	}
 
