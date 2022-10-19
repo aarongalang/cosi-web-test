@@ -1,6 +1,6 @@
 deploy: push
 	kubectl apply -f web-deployment.yaml
-push: clean
+push:
 	docker build . -t aarongalang/cosi-web-test:latest
 	docker push aarongalang/cosi-web-test:latest
 port:
